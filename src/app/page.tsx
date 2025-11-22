@@ -9,43 +9,92 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+
 import {
   Plus,
   List,
   Check,
   CircleEllipsis,
-  SquarePen,
   Trash,
   ListChecks,
   Sigma,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import EditTask from "@/components/edit-task";
+import getTasksFromBD from "@/actions/get-tasks-from-bd";
+import React, { useEffect, useState } from "react";
+import { Tasks } from "@prisma/client";
+import NewTask from "@/actions/add-task";
+import DeleteTask from "@/components/ui/delete-task";
+import ButtonDeleteTask from "@/actions/delete-task";
+import prisma from "@/utils/prisma";
 
 export default function Home() {
+  const [taskList, setTaskList] = useState<Tasks[]>([]);
+  const [task, setTask] = useState<string>("");
+
+  const handleGetTasks = async () => {
+  try {
+    const tasks = await getTasksFromBD();
+    if (!tasks) return;
+    setTaskList(tasks);
+  } catch (error) {
+    console.error("Error fetching tasks:", error);
+  }
+};
+
+
+  const handleAddTask = async () => {
+   try{
+     if (task.length === 0 || !task) {
+      return;
+    }
+
+    const myNewTask = await NewTask(task);
+
+    if (!myNewTask) return;
+    console.log(myNewTask);
+    await handleGetTasks();
+   } catch (error) {
+    console.error("Error adding task:", error);
+   }
+  };
+
+  const handleDeleteTask = async ( id: number) => {
+
+ 
+   try {
+    if(!id) return;
+    const deletedtask = await ButtonDeleteTask(id);
+
+    if (!deletedtask) return;
+    console.log(deletedtask);
+    await handleGetTasks();
+   } catch (error) {
+    console.error("Error deleting task:", error);
+   }
+  };
+
+  useEffect(() => {
+  async function fetchTasks() {
+    await handleGetTasks();
+  }
+
+  fetchTasks();
+}, []);
+
+
   return (
     <main className="w-full h-screen bg-[#0a0a0a] flex justify-center items-center">
       <Card className="w-lg bg-[#181818] border-[#ffffff4f]">
         {/* INPUT + BOTÃO */}
         <CardHeader className="flex gap-2">
-          <Input placeholder="Adicione uma tarefa" className="text-[#A1A1A5]" />
-          <Button className="flex gap-1">
+          <Input
+            placeholder="Adicione uma tarefa"
+            className="text-[#A1A1A5]"
+            onChange={(e) => setTask(e.target.value)}
+          />
+          <Button className="flex gap-1"  variant="default" onClick={handleAddTask}>
             <Plus />
             Cadastrar
           </Button>
@@ -70,35 +119,22 @@ export default function Home() {
 
         {/* LISTA */}
         <CardContent className="text-white">
-          <div className="flex justify-between items-center rounded-xs overflow-hidden h-14 gap-2 border border-[#ffffff4f] mb-1">
-            <div className="w-2 h-full bg-green-300" />
+          {taskList.map((task) => (
+            <div
+              key={task.id}
+              className="flex justify-between items-center rounded-xs overflow-hidden h-14 gap-2 border border-[#ffffff4f] mb-1"
+            >
+              <div className="w-2 h-full bg-green-300" />
 
-            <p className="ml-3 text-sm flex-1">Estudar React</p>
+              <p className="ml-3 text-sm flex-1">{task.task}</p>
 
-            <div className="flex items-center px-2 gap-1">
-              <Dialog>
-                <DialogTrigger>
-                  <SquarePen size={17} className="cursor-pointer text-white" />
-                </DialogTrigger>
+              <div className="flex items-center px-2 gap-1">
+                <EditTask />
 
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Editar Tarefa</DialogTitle>
-                    <div className=" flex items-center gap-2 mt-3">
-                      <Input
-                        placeholder="Adicione uma tarefa"
-                        className="bg-white text-black cursor-pointer"
-                      />
-                      <Button className=" flex gap-1 cursor-pointer">
-                        Editar
-                      </Button>
-                    </div>
-                  </DialogHeader>
-                </DialogContent>
-              </Dialog>
-              <Trash size={17} className="cursor-pointer" />
+                <Trash size={17} className="cursor-pointer" onClick={() => handleDeleteTask(task.id)}/>
+              </div>
             </div>
-          </div>
+          ))}
         </CardContent>
 
         {/* FOOTER - CONTAGEM */}
@@ -107,31 +143,7 @@ export default function Home() {
             <ListChecks size={17} />
             <p className="text-sm">tarefas concluídas (3/3)</p>
           </div>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Badge
-                className="flex items-center gap-2 text-sm border border-[#ffffff4f] px-3 py-1 rounded-md cursor-pointer h-7"
-                variant="outline"
-              >
-                <Trash size={17} />
-                Limpar Tarefas concluídas
-              </Badge>
-            </AlertDialogTrigger>
-
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Tem certeza que deseja apagar X itens?
-                </AlertDialogTitle>
-              </AlertDialogHeader>
-
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction>Continuar</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <DeleteTask />
         </CardFooter>
 
         {/* PROGRESS BAR */}
