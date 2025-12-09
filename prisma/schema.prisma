@@ -3,12 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Tasks {
-  id Int  @id @default(autoincrement())
+  id   Int     @id @default(autoincrement())
   task String
-  done Boolean 
+  done Boolean
 }

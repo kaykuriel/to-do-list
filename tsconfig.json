@@ -1,37 +1,30 @@
 {
   "compilerOptions": {
-    // 👇 Remove o aviso do TypeScript sobre opções antigas
-    "ignoreDeprecations": "6.0",
-    // Configurações do Next + TS
-    "target": "esnext",
+    "target": "ES2017",
     "lib": [
       "dom",
       "dom.iterable",
       "esnext"
     ],
-    "allowJs": true,
+    "allowJs": false,
     "skipLibCheck": true,
-    "strictNullChecks": true,
+    "strict": false,
+    "noEmit": true,
+    "incremental": true,
     "esModuleInterop": true,
-    "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true,
     "jsx": "react-jsx",
-    // 👇 Alias para importações (ex.: import X from "@/components/X")
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     },
-    "strict": false,
-    "incremental": true,
     "plugins": [
       {
         "name": "next"
       }
-    ]
+    ],
+    "module": "esnext"
   },
   "include": [
     "next-env.d.ts",

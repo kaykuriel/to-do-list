@@ -27,62 +27,98 @@ import { Tasks } from "@prisma/client";
 import NewTask from "@/actions/add-task";
 import DeleteTask from "@/components/ui/delete-task";
 import ButtonDeleteTask from "@/actions/delete-task";
-import prisma from "@/utils/prisma";
+import { toast } from "sonner";
+import { updateTaskStatus } from "@/actions/toggle-done";
 
 export default function Home() {
   const [taskList, setTaskList] = useState<Tasks[]>([]);
   const [task, setTask] = useState<string>("");
 
-  const handleGetTasks = async () => {
-  try {
-    const tasks = await getTasksFromBD();
-    if (!tasks) return;
-    setTaskList(tasks);
-  } catch (error) {
-    console.error("Error fetching tasks:", error);
-  }
-};
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault(); // opcional, evita comportamento padrão do Enter
+      handleAddTask(); // adiciona a tarefa
+      setTask(""); // limpa o input
+    }
+  };
 
+  const handleGetTasks = async () => {
+    try {
+      const tasks = await getTasksFromBD();
+      if (!tasks) return;
+      setTaskList(tasks);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+    }
+  };
 
   const handleAddTask = async () => {
-   try{
-     if (task.length === 0 || !task) {
-      return;
+    try {
+      if (task.length === 0 || !task) {
+        return;
+      }
+
+      const myNewTask = await NewTask(task);
+
+      if (!myNewTask) return;
+      console.log(myNewTask);
+      await handleGetTasks();
+      setTask("");
+      toast.success(`Atividade adicionada com sucesso`);
+    } catch (error) {
+      console.error("Error adding task:", error);
+    }
+  };
+
+  const handleDeleteTask = async (id: number) => {
+    try {
+      if (!id) return;
+      const deletedtask = await ButtonDeleteTask(id);
+
+      if (!deletedtask) return;
+      console.log(deletedtask);
+      await handleGetTasks();
+      toast.warning(`Atividade deletada com sucesso`);
+    } catch (error) {
+      console.error("Error deleting task:", error);
+    }
+  };
+
+  const handleToggleTask = async (taskId: number) => {
+    console.log(taskList);
+
+    const previousTask = [...taskList];
+
+    try {
+      setTaskList((prev) => {
+        const updatedTask = prev.map((task) => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              done: !task.done,
+            };
+          } else {
+            return task;
+          }
+        });
+
+        return updatedTask;
+      });
+
+      const getFromDb = await updateTaskStatus(taskId);
+      console.log(getFromDb);
+    } catch (error) {
+      setTaskList(previousTask);
+      console.error("Error updating task status:", error);
+    }
+  };
+  useEffect(() => {
+    async function fetchTasks() {
+      await handleGetTasks();
     }
 
-    const myNewTask = await NewTask(task);
-
-    if (!myNewTask) return;
-    console.log(myNewTask);
-    await handleGetTasks();
-   } catch (error) {
-    console.error("Error adding task:", error);
-   }
-  };
-
-  const handleDeleteTask = async ( id: number) => {
-
- 
-   try {
-    if(!id) return;
-    const deletedtask = await ButtonDeleteTask(id);
-
-    if (!deletedtask) return;
-    console.log(deletedtask);
-    await handleGetTasks();
-   } catch (error) {
-    console.error("Error deleting task:", error);
-   }
-  };
-
-  useEffect(() => {
-  async function fetchTasks() {
-    await handleGetTasks();
-  }
-
-  fetchTasks();
-}, []);
-
+    fetchTasks();
+  }, []);
 
   return (
     <main className="w-full h-screen bg-[#0a0a0a] flex justify-center items-center">
@@ -93,8 +129,23 @@ export default function Home() {
             placeholder="Adicione uma tarefa"
             className="text-[#A1A1A5]"
             onChange={(e) => setTask(e.target.value)}
+            value={task}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault(); // evita comportamento padrão do Enter
+                handleAddTask();
+                setTask("");
+              }
+            }}
           />
-          <Button className="flex gap-1"  variant="default" onClick={handleAddTask}>
+          <Button
+            className="flex gap-1"
+            variant="default"
+            onClick={() => {
+              handleAddTask();
+              setTask("");
+            }}
+          >
             <Plus />
             Cadastrar
           </Button>
@@ -124,14 +175,32 @@ export default function Home() {
               key={task.id}
               className="flex justify-between items-center rounded-xs overflow-hidden h-14 gap-2 border border-[#ffffff4f] mb-1"
             >
-              <div className="w-2 h-full bg-green-300" />
+              {/* Barra colorida */}
+              <div
+                className={`w-2 h-full ${
+                  task.done ? "bg-red-500" : "bg-green-500"
+                }`}
+              />
 
-              <p className="ml-3 text-sm flex-1">{task.task}</p>
+              {/* Texto da tarefa */}
+              <p
+                className={`ml-3 text-sm flex-1 cursor-pointer hover:text-gray-400 ${
+                  task.done ? "line-through text-gray-400" : ""
+                }`}
+                onClick={() => handleToggleTask(task.id)}
+              >
+                {task.task}
+              </p>
 
+              {/* Botões */}
               <div className="flex items-center px-2 gap-1">
                 <EditTask />
 
-                <Trash size={17} className="cursor-pointer" onClick={() => handleDeleteTask(task.id)}/>
+                <Trash
+                  size={17}
+                  className="cursor-pointer"
+                  onClick={() => handleDeleteTask(task.id)}
+                />
               </div>
             </div>
           ))}
