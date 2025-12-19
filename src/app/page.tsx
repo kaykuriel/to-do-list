@@ -8,39 +8,27 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-
-import {
-  Plus,
-  List,
-  Check,
-  CircleEllipsis,
-  Trash,
-  ListChecks,
-  Sigma,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import * as lucideReact from "lucide-react";
 import EditTask from "@/components/edit-task";
 import getTasksFromBD from "@/actions/get-tasks-from-bd";
-import React, { useEffect, useState } from "react";
-import { Tasks } from "@prisma/client";
+import { useEffect, useState } from "react";
+import type { Tasks } from "@prisma/client";
 import NewTask from "@/actions/add-task";
-import DeleteTask from "@/components/ui/delete-task";
 import ButtonDeleteTask from "@/actions/delete-task";
 import { toast } from "sonner";
 import { updateTaskStatus } from "@/actions/toggle-done";
+import { Filter } from "@/components/filter";
+import { FilterType } from "@/components/filter";
+import DeleteTask from "@/components/delete-task";
+import { clearTasksCompleted } from "@/actions/clear-completed-task";
+
 
 export default function Home() {
   const [taskList, setTaskList] = useState<Tasks[]>([]);
   const [task, setTask] = useState<string>("");
-
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault(); // opcional, evita comportamento padrão do Enter
-      handleAddTask(); // adiciona a tarefa
-      setTask(""); // limpa o input
-    }
-  };
+  const [loading, setLoading] = useState<boolean>(false);
+  const [currentFilter, setCurrentFilter] = useState<FilterType>("all");
+  const [filteredTasks, setFilteredTasks] = useState<Tasks[]>([]);
 
   const handleGetTasks = async () => {
     try {
@@ -53,8 +41,11 @@ export default function Home() {
   };
 
   const handleAddTask = async () => {
+    setLoading(true);
     try {
       if (task.length === 0 || !task) {
+        toast.error("Por favor, insira uma tarefa");
+        setLoading(false);
         return;
       }
 
@@ -65,9 +56,11 @@ export default function Home() {
       await handleGetTasks();
       setTask("");
       toast.success(`Atividade adicionada com sucesso`);
+
     } catch (error) {
       console.error("Error adding task:", error);
     }
+    setLoading(false);
   };
 
   const handleDeleteTask = async (id: number) => {
@@ -112,6 +105,17 @@ export default function Home() {
       console.error("Error updating task status:", error);
     }
   };
+
+  const clearCompletedTasks = async () => {
+    const deletedTask = await clearTasksCompleted();
+
+    if (!deletedTask) return;
+    setTaskList(deletedTask || []);
+    toast.warning(`Tarefas concluídas apagadas com sucesso`);
+
+  }
+
+
   useEffect(() => {
     async function fetchTasks() {
       await handleGetTasks();
@@ -119,6 +123,20 @@ export default function Home() {
 
     fetchTasks();
   }, []);
+
+  useEffect(() => {
+    switch (currentFilter) {
+      case "all":
+        setFilteredTasks(taskList)
+        break
+      case "pending":
+        setFilteredTasks(taskList.filter(task => !task.done))
+        break
+      case "completed":
+        setFilteredTasks(taskList.filter(task => task.done))
+        break
+    }
+  }, [currentFilter, taskList])
 
   return (
     <main className="w-full h-screen bg-[#0a0a0a] flex justify-center items-center">
@@ -146,47 +164,32 @@ export default function Home() {
               setTask("");
             }}
           >
-            <Plus />
+            {loading ? <lucideReact.LoaderCircle className="animate-spin" /> : <lucideReact.Plus />}
             Cadastrar
           </Button>
         </CardHeader>
 
-        {/* FILTROS */}
-        <CardHeader className="flex flex-wrap gap-2">
-          <Separator className="bg-[#ffffff49] mb-4" />
 
-          <Badge className="cursor-pointer" variant="default">
-            <List /> Todos
-          </Badge>
-
-          <Badge className="cursor-pointer" variant="outline">
-            <CircleEllipsis /> Não Finalizados
-          </Badge>
-
-          <Badge className="cursor-pointer" variant="outline">
-            <Check /> Concluídos
-          </Badge>
-        </CardHeader>
+        <Filter currentFilter={currentFilter} setCurrentFilter={setCurrentFilter} />
 
         {/* LISTA */}
-        <CardContent className="text-white">
-          {taskList.map((task) => (
+        <CardContent className="text-white h-75 overflow-y-scroll">
+          {taskList.length === 0 && <p>Voce não tem tarefas Cadastradas </p>}
+          {filteredTasks.map((task) => (
             <div
               key={task.id}
               className="flex justify-between items-center rounded-xs overflow-hidden h-14 gap-2 border border-[#ffffff4f] mb-1"
             >
               {/* Barra colorida */}
               <div
-                className={`w-2 h-full ${
-                  task.done ? "bg-red-500" : "bg-green-500"
-                }`}
+                className={`w-2 h-full ${task.done ? "bg-green-500" : "bg-gray-500"
+                  }`}
               />
 
               {/* Texto da tarefa */}
               <p
-                className={`ml-3 text-sm flex-1 cursor-pointer hover:text-gray-400 ${
-                  task.done ? "line-through text-gray-400" : ""
-                }`}
+                className={`ml-3 text-sm flex-1 cursor-pointer hover:text-gray-400 ${task.done ? "line-through text-gray-400" : ""
+                  }`}
                 onClick={() => handleToggleTask(task.id)}
               >
                 {task.task}
@@ -194,9 +197,10 @@ export default function Home() {
 
               {/* Botões */}
               <div className="flex items-center px-2 gap-1">
-                <EditTask />
 
-                <Trash
+                <EditTask task={task} handleGetTasks={handleGetTasks} />
+
+                <lucideReact.Trash
                   size={17}
                   className="cursor-pointer"
                   onClick={() => handleDeleteTask(task.id)}
@@ -209,23 +213,23 @@ export default function Home() {
         {/* FOOTER - CONTAGEM */}
         <CardFooter className="text-white flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <ListChecks size={17} />
-            <p className="text-sm">tarefas concluídas (3/3)</p>
+            <lucideReact.ListChecks size={17} />
+            <p className="text-sm">tarefas concluídas ({filteredTasks.filter(task => task.done).length}/{taskList.length})</p>
           </div>
-          <DeleteTask />
+          <DeleteTask clearCompletedTasks={clearCompletedTasks} />
         </CardFooter>
 
         {/* PROGRESS BAR */}
         <CardFooter className="px-6">
           <div className="bg-[#2f2f2fab] h-3 w-full rounded-sm overflow-hidden">
-            <div className="bg-blue-500 h-full" style={{ width: "50%" }} />
+            <div className="bg-blue-500 h-full" style={{ width: `${(filteredTasks.filter(task => task.done).length / (taskList.length || 1)) * 100}%` }} />
           </div>
         </CardFooter>
 
         {/* RODAPÉ */}
         <CardFooter className="text-white flex justify-end items-center">
           <p className="flex text-sm gap-1 items-center">
-            <Sigma size={18} />3 Tarefas no Total
+            <lucideReact.Sigma size={18} />{taskList.length} Tarefas no Total
           </p>
         </CardFooter>
       </Card>

@@ -5,7 +5,7 @@ export const updateTaskStatus = async (taskId: number) => {
   try {
     const currentTask = await prisma.tasks.findUnique({
       where: {
-        id: taskId,
+        id: taskId,   
       },
     });
 
